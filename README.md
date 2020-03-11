@@ -9,3 +9,4 @@
   - [regexp/syntax](/docs/regexp/syntax.md)
 - log
   - [log](/docs/log/log.md)
+  - [log_test](/docs/log/log_test.md)
