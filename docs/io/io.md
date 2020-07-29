@@ -20,7 +20,52 @@ ReadSeeker/WriteSeeker/ReadWriteSeeker.
 第二部分是基于第一部分的11接口,扩展出的一些功能性ds/func.
 io包用的最多的还是第一部分的核心接口.
 
-### 详细说明(包含精彩片段欣赏)
+## 详细说明(包含精彩片段欣赏)
+
+针对核心4接口会重点分析,针对功能性部分会大致过一下.
+
+### Reader接口
+
+只包含一个方法`Read`,接口名叫Reader,完全是符合编码规范的.
+
+Reader接口封装的是基础的io读.
+
+    type Reader interface {
+      Read(p []byte) (n int, err error)
+    }
+
+Read方法说明:
+
+- 读数据到切片p,长度最多是len(p)
+  - 返回值是具体读到的字节数,或任何错误
+  - 如果要读的数据长度不足len(p),会返回实际长度，不会等待
+- 不管是读中出错,还是遇到文件尾,第一个返回值n会返回实际已读字节数
+  - 对于第二个返回值err就有些不同了
+    - 可能会返回EOF,也可能返回nil
+    - 再次调用Read的返回值是确定的: 0,EOF
+- 调用者正确的处理返回值姿势应该是这样的
+  - 先判断n是否大于0,再判断err
+- 对于实现
+  - 除非len(p)是0,否则不推荐返回 0,nil
+  - 因为0,nil表示什么都没发生
+  - 实际处理中，EOF就是EOF，不能用0,nil来代替
+
+额外说明,Read方法的参数是切片,是引用,所以是可以在内部修改值的.
+当然是有前提的:实现类型的指针方法集匹配Reader.
+值方法集实现Reader接口是没有意义的.
+就像LimitedReader对Reader的实现:
+
+    func (l *LimitedReader) Read(p []byte) (n int, err error) {
+      if l.N <= 0 {
+        return 0, EOF
+      }
+      if int64(len(p)) > l.N {
+        p = p[0:l.N]
+      }
+      n, err = l.R.Read(p)
+      l.N -= int64(n)
+      return
+    }
 
 ## 眼前一亮的写法
 
