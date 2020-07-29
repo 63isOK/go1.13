@@ -109,7 +109,7 @@ io的偏移操作封装.
 
 - 这个偏移是针对下次读或下次写
 - 参数offset和whence确定了具体的偏移地址
-  - offset定义了三个值(SeekStart/SeekCurrent/SeekEnd)
+  - whence定义了三个值(SeekStart/SeekCurrent/SeekEnd)
   - 第一个返回值是基于文档头的偏移量
 - 偏移到文件头之前,是非法的,err就是non-nil
   - 偏移位置是任何正整数都是ok的
@@ -195,6 +195,72 @@ io包第二部分的功能性扩展.
 
 从这里看,ReadAt是对Read的一种补充,她们的相同点是调用的姿势:
 先处理返回值n,后处理err.
+
+回头看看SectionReader的构造函数.因为结构体的字段是不暴露的,
+所以在其他包中只能通过构造函数NewSectionReader来正确构造.
+从文档上可以看出,SectionReader对Reader有两个扩展:
+添加了偏移量;添加了最大读取的字节数.
+
+先看对Reader的实现:
+
+    func (s *SectionReader) Read(p []byte) (n int, err error) {
+      if s.off >= s.limit {
+        return 0, EOF
+      }
+      if max := s.limit - s.off; int64(len(p)) > max {
+        p = p[0:max]
+      }
+      n, err = s.r.ReadAt(p, s.off)
+      s.off += int64(n)
+      return
+    }
+
+如果字节数已经超过了,返回(0,EOF),
+其他的就是调用构造函数第一个参数ReaderAt接口变量来读.
+因为ReaderAt的方法ReadAt是并发安全的,
+所以SectionReader.Read也是并发安全的.
+
+SectionReader除了实现了Reader,还实现了Seeker:
+
+    func (s *SectionReader) Seek(offset int64, whence int) (int64, error) {
+      switch whence {
+      default:
+        return 0, errWhence
+      case SeekStart:
+        offset += s.base
+      case SeekCurrent:
+        offset += s.off
+      case SeekEnd:
+        offset += s.limit
+      }
+      if offset < s.base {
+        return 0, errOffset
+      }
+      s.off = offset
+      return offset - s.base, nil
+    }
+
+这个实现是非常有意思的.我们先看两个地方,再来讨论这个实现.
+
+实现Reader时用的时ReadAt方法,这个方法和普通的Read对偏移的副作用是不一样的,
+ReadAt完全不影响偏移的那些因子,而普通的Read/Seek是会更新偏移因子的,
+为什么叫偏移因子不叫偏移变量,因为这些因子是由io操作自己底层维护的,
+这也是为啥SectionReader结构体有(base/off/limit)三个字段的原因,
+因为这三个字段就是用来模拟io底层的偏移因子的.
+
+我们要看第一个地方就是结构体中的这三个变量.
+base表示文件头,limit表示文件尾,off表示当前的偏移量(或者叫当前游标).
+初始化看构造函数的设置,Read()/Seek()都有对偏移的更新.
+
+第二个地方是Seeker接口,Seeker是通过两个参数来更新偏移的,
+而且对偏移的一些处理也是有规定的:不能更新到文件头去.
+SectionReader对Seeker的实现中,就判断了新的偏移不能在base之前.
+
+明白这两点后,再看SectionReader对Seeker的实现就很简单了.
+过程就不多了,只说两个细节:
+
+- 第一个返回值是基于文件头的偏移,SectionReader在这点上也做的很好
+- switch的default可以提前,特别是处理一些错误时
 
 ## 眼前一亮的写法
 
