@@ -95,6 +95,23 @@ Read方法说明:
 - 关闭之后,再次调用关闭,行为是未定义的
 - 实现上,如果有特别操作,应该在文档上有所体现
 
+### Seeker接口
+
+io的偏移操作封装.
+
+    type Seeker interface {
+      Seek(offset int64, whence int) (int64, error)
+    }
+
+- 这个偏移是针对下次读或下次写
+- 参数offset和whence确定了具体的偏移地址
+  - offset定义了三个值(SeekStart/SeekCurrent/SeekEnd)
+  - 第一个返回值是基于文档头的偏移量
+- 偏移到文件头之前,是非法的,err就是non-nil
+  - 偏移位置是任何正整数都是ok的
+- 实现上
+  - 偏移位置是任何正整数是不合逻辑的
+  - 具体要表现出什么行为,和实现相关
 
 ## 眼前一亮的写法
 
