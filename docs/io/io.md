@@ -262,6 +262,39 @@ SectionReader对Seeker的实现中,就判断了新的偏移不能在base之前.
 - 第一个返回值是基于文件头的偏移,SectionReader在这点上也做的很好
 - switch的default可以提前,特别是处理一些错误时
 
+接下来看看对ReaderAt的实现:
+
+    func (s *SectionReader) ReadAt(p []byte, off int64) (n int, err error) {
+      if off < 0 || off >= s.limit-s.base {
+        return 0, EOF
+      }
+      off += s.base
+      if max := s.limit - off; int64(len(p)) > max {
+        p = p[0:max]
+        n, err = s.r.ReadAt(p, off)
+        if err == nil {
+          err = EOF
+        }
+        return n, err
+      }
+      return s.r.ReadAt(p, off)
+    }
+
+ReaderAt接口的读是不受偏移因子的影响的,也不影响偏移因子,
+ReaderAt只受io文件的头和尾的影响,
+SectionReader是用base和limit来模拟头和尾的.
+
+SectionReader.ReadAt()对于要读的数据不足len(p)的情况,
+ReaderAt对这种情况的规定是阻塞等或返回error,
+这里是通过一次正常的读,然后修改返回值err来实现,
+当然这里如果出现其他错误,也是可以处理的.
+
+这里不得不佩服作者在给出ReadAt接口的定义后,
+又利用模拟偏移的SectionReader来完美实现了ReaderAt.
+
 ## 眼前一亮的写法
 
 ## 可能的应用场景
+
+LimitReader可用在对读的最大字节数有限制的场景;
+SectionReader可用在即对最大字节数有限制,又对读的区域有限制的场景.
