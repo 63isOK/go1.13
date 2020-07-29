@@ -340,6 +340,43 @@ teeReader实现的是Reader接口,处理逻辑是:
 - 如果是构造新类型,用Newxxx
 - 如果是返回接口类型,用和实现类型接近的名字
 
+## io.CopyN
+
+这是功能性函数.采用层层分析的方式,最后再做总结.
+
+    func CopyN(dst Writer, src Reader, n int64) (written int64, err error) {
+      written, err = Copy(dst, LimitReader(src, n))
+      if written == n {
+        return n, nil
+      }
+      if written < n && err == nil {
+        // src stopped early; must have been EOF.
+        err = EOF
+      }
+      return
+    }
+
+文档描述:
+
+- 从src拷贝n字节数的内容到dst
+  - 第一个返回值是具体拷贝的字节数
+  - 第二个返回值err特指最先出现的错误
+  - 当err为nil时,具体拷贝的字节数和参数指定的字节数n是一致的
+- 如果dst(Writer)实现了ReaderFrom,内部实现会用到ReaderFrom
+
+还好先分析的功能性结构体,所以又可以有一些猜测.
+我们分析了三个功能性结构体:LimitReader扩展了读到的最大字节数,
+SectionReader除了读的最大字节数,还扩展了读哪一块,
+最后的teeReader扩展了Reader和Writer的连接枢纽.
+CopyN除了扩展连接枢纽,还扩展了最大字节数.
+所以CopyN里用到了LimitReader是很自然的事.
+
+    func Copy(dst Writer, src Reader) (written int64, err error) {
+      return copyBuffer(dst, src, nil)
+    }
+
+文档描述:
+
 ## 眼前一亮的写法
 
 ## 可能的应用场景
