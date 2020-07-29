@@ -148,6 +148,54 @@ LimitReader就属于功能性的结构体.
 其次,之前提到过的"Read使用指针接收者,writer使用值接收者",
 在这里也有体现.
 
+### io.SectionReader分析
+
+io包第二部分的功能性扩展.
+
+    func NewSectionReader(r ReaderAt, off int64, n int64) *SectionReader {
+      return &SectionReader{r, off, off, off + n}
+    }
+
+    type SectionReader struct {
+      r     ReaderAt
+      base  int64
+      off   int64
+      limit int64
+    }
+
+同样是功能型的结构体,SectionReader和LimitReader是有很大不一样的.
+
+- LimitReader的构造函数不是Newxxx
+  - 作者的意图应该是构造一个满足Reader的对象
+  - 而Newxxx应该是用于构造新类型,NewSectionReader返回的就不是Reader类型
+- LimitedReader结构体的字段是暴露的
+  - 那作者的意图是构造之后,可以走类型断言,通过字段来查属性
+  - SectionReader的字段是不暴露的,说明访问全都得通过方法来
+
+下面就将目光放在SectionReader身上.
+构造函数的第一个参数类型是ReaderAt,接口类型.
+
+    type ReaderAt interface {
+      ReadAt(p []byte, off int64) (n int, err error)
+    }
+
+方法ReadAt()相比Read来说,参数中了一个off,
+表示先偏移off字节数再读len(p)的字节数到切片.
+下面来看下ReaderAt接口的信息:
+
+- 接口的功能是从输入源的偏移off处开始读
+- 如果没有读到len(p),返回non-nil错误
+  - 在错误中描述为啥少读了,这点上比Reader接口更加严格
+- 如果ReadAt没有读到len(p)字节数,要么阻塞等待,要么返回error
+  - 这点上是和Reader完全不一样,Reader不会阻塞
+- 就算ReadAt读了len(p)字节数,err也有可能是EOF,其他情况是nil
+- ReadAt不受seek offset(头/当前位置/结尾)的影响,也不影响seek因数
+- 并行读是ok的
+- 实现上,不得存p的引用
+
+从这里看,ReadAt是对Read的一种补充,她们的相同点是调用的姿势:
+先处理返回值n,后处理err.
+
 ## 眼前一亮的写法
 
 ## 可能的应用场景
