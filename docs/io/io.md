@@ -69,14 +69,18 @@ Read方法说明:
 
 ### Writer接口
 
+### abc
+
 基础的io写操作.
 
     type Writer interface {
       Write(p []byte) (n int, err error)
     }
 
+分析
+
 - 将切片数据p写道相关的流中,写的字节数是len(p)
-  - 返回值n表示实际写的字节数，如果n<len(p),err就是non-nil
+  - 返回值n表示实际写的字节数，如果n小于len(p),err就是non-nil
 - 方法是不会改变切片p的数据，临时性的也不行
 - 在实现上
   - 要确保不会修改切片p
@@ -112,6 +116,37 @@ io的偏移操作封装.
 - 实现上
   - 偏移位置是任何正整数是不合逻辑的
   - 具体要表现出什么行为,和实现相关
+
+### io.LimitReader分析
+
+这属于io包第二部分的一些扩展,属于功能性的,
+LimitReader就属于功能性的结构体.
+
+    func LimitReader(r Reader, n int64) Reader { return &LimitedReader{r, n} }
+
+    type LimitedReader struct {
+      R Reader // underlying reader
+      N int64  // max bytes remaining
+    }
+
+    func (l *LimitedReader) Read(p []byte) (n int, err error) {
+      if l.N <= 0 {
+        return 0, EOF
+      }
+      if int64(len(p)) > l.N {
+        p = p[0:l.N]
+      }
+      n, err = l.R.Read(p)
+      l.N -= int64(n)
+      return
+    }
+
+从名字LimitedReader可以看出是一个实现了io.Reader接口的类型,
+从源码上可以看出LimitedReader是限制了读的最大字节数.
+当超过阀值时,返回的是(0,EOF).
+
+其次,之前提到过的"Read使用指针接收者,writer使用值接收者",
+在这里也有体现.
 
 ## 眼前一亮的写法
 
