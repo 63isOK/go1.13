@@ -292,6 +292,54 @@ ReaderAt对这种情况的规定是阻塞等或返回error,
 这里不得不佩服作者在给出ReadAt接口的定义后,
 又利用模拟偏移的SectionReader来完美实现了ReaderAt.
 
+### io.teeReader分析
+
+这是第三个功能性结构体.
+
+从名字就很有启示性,tee用于改变流向.
+
+    func TeeReader(r Reader, w Writer) Reader {
+      return &teeReader{r, w}
+    }
+
+    type teeReader struct {
+      r Reader
+      w Writer
+    }
+
+    func (t *teeReader) Read(p []byte) (n int, err error) {
+      n, err = t.r.Read(p)
+      if n > 0 {
+        if n, err := t.w.Write(p[:n]); err != nil {
+          return n, err
+        }
+      }
+      return
+    }
+
+先说一下文档上的介绍,再分析细节.
+
+teeReader实现的是Reader接口,处理逻辑是:
+从一个Reader读,写到一个Writer中.
+如果出现error,都作为读错误来返回.
+从源码上看,就是一个纯粹的将读到的数据写到Writer中.
+
+细节分析:
+
+- 构造函数不是Newxxx,因为不是构造一个新类型,而是Reader
+- 同时结构体teeReader没有暴露
+  - 意味着作者不希望调用方走类型断言,通过字段来获取信息
+  - 完美地将teeReader的相关信息隐藏起来,这是封装
+- 当多个操作都可能出现错误时,以其中一种为主
+
+不管是LimitReader还是SectionReader/teeReader,共同点是结构体,
+还有对io接口的使用:带名字段而不是内嵌.
+
+另外对构造函数的额命名也归纳一下:
+
+- 如果是构造新类型,用Newxxx
+- 如果是返回接口类型,用和实现类型接近的名字
+
 ## 眼前一亮的写法
 
 ## 可能的应用场景
