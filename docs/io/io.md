@@ -375,7 +375,75 @@ CopyN除了扩展连接枢纽,还扩展了最大字节数.
       return copyBuffer(dst, src, nil)
     }
 
-文档描述:
+Copy是负责拷贝的,底层调用的copyBuffer函数是具体的工作函数.
+
+    func CopyBuffer(dst Writer, src Reader, buf []byte)
+      (written int64, err error) {
+      if buf != nil && len(buf) == 0 {
+        panic("empty buffer in io.CopyBuffer")
+      }
+      return copyBuffer(dst, src, buf)
+    }
+
+上面的到处方法copyBuffer也是基于copyuffer实现的,这是复用.
+
+    func copyBuffer(dst Writer, src Reader, buf []byte)
+      (written int64, err error) {
+      if wt, ok := src.(WriterTo); ok {
+        return wt.WriteTo(dst)
+      }
+      if rt, ok := dst.(ReaderFrom); ok {
+        return rt.ReadFrom(src)
+      }
+      if buf == nil {
+        size := 32 * 1024
+        if l, ok := src.(*LimitedReader); ok && int64(size) > l.N {
+          if l.N < 1 {
+            size = 1
+          } else {
+            size = int(l.N)
+          }
+        }
+        buf = make([]byte, size)
+      }
+      for {
+        nr, er := src.Read(buf)
+        if nr > 0 {
+          nw, ew := dst.Write(buf[0:nr])
+          if nw > 0 {
+            written += int64(nw)
+          }
+          if ew != nil {
+            err = ew
+            break
+          }
+          if nr != nw {
+            err = ErrShortWrite
+            break
+          }
+        }
+        if er != nil {
+          if er != EOF {
+            err = er
+          }
+          break
+        }
+      }
+      return written, err
+    }
+
+copyBuffer是最终的工作函数.
+
+- 先判断Writer/Reader的具体类型是否有作扩展
+  - 通过类型断言来判断
+  - 如果有扩展,直接调用扩展来实现
+    - 此时并没有甬道第三个参数buf
+- 如果是常规的Writer/Reader,走正常流程
+  - 从这里可以看出,第三个参数buf是一个临时缓冲
+  - 如果copyBuffer没有指定,默认最大32M的字节
+  - 之后是一个for循环,不停地读写,直到读完,或出现错误
+
+这是拷贝类函数,使用到了ReaderFrom/WriteTo两个接口.
 
 ## 眼前一亮的写法
 
