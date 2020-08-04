@@ -487,6 +487,25 @@ copyBuffer是最终的工作函数.
 这个函数字节是读的大小和切片大小一致.
 意图是读指定切片大小的数据.
 
+## io.WriteString分析
+
+函数很简单:
+
+    func WriteString(w Writer, s string) (n int, err error) {
+      if sw, ok := w.(StringWriter); ok {
+        return sw.WriteString(s)
+      }
+      return w.Write([]byte(s))
+    }
+
+意图是将字符串写到Writer中,不过提供了一个机会来修改写逻辑.
+是通过接口完成.这是典型的依赖倒置原则的应用,
+也是开放封闭原则的体现.dip/ocp.
+
+类似可扩展的接口有:
+ReaderAt/WriterAt/ByteReader/ByteScanner/ByteWriter/RuneReader/
+RuneScanner,StringWriter也算一个.
+
 ## 眼前一亮的写法
 
 ## 可能的应用场景
