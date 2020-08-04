@@ -445,6 +445,48 @@ copyBuffer是最终的工作函数.
 
 这是拷贝类函数,使用到了ReaderFrom/WriteTo两个接口.
 
+## io.ReadAtLeast分析
+
+功能性的函数,和Copy系列的类似.
+
+    func ReadAtLeast(r Reader, buf []byte, min int) (n int, err error) {
+      if len(buf) < min {
+        return 0, ErrShortBuffer
+      }
+      for n < min && err == nil {
+        var nn int
+        nn, err = r.Read(buf[n:])
+        n += nn
+      }
+      if n >= min {
+        err = nil
+      } else if n > 0 && err == EOF {
+        err = ErrUnexpectedEOF
+      }
+      return
+    }
+
+文档说明:
+
+- 从Reader中读,至少读min个字节
+- 对外暴露的行为是一次读,反倒buf缓冲中,如果缓冲长度少了,报特殊错误
+- 如果遇到EOF时,读的字节数小于min,报特殊错误
+- 行为正确的两个场景:
+  - n大于等于min,err为nil
+  - n大于等于min,err为non-nil
+
+总的来说,只要n大于等于min,就是被理解为正常行为,
+其他行为都会报错,只是错误类型不同而已.
+
+这个函数的意图是至少读多少字节.没有达到这个意图的,都会返回错误信息.
+
+    func ReadFull(r Reader, buf []byte) (n int, err error) {
+      return ReadAtLeast(r, buf, len(buf))
+    }
+
+这个函数字节是读的大小和切片大小一致.
+意图是读指定切片大小的数据.
+
 ## 眼前一亮的写法
 
 ## 可能的应用场景
