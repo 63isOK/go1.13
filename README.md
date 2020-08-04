@@ -9,4 +9,13 @@
   - [regexp/syntax](/docs/regexp/syntax.md)
 - log
   - [log](/docs/log/log.md)
-  - [log_test](/docs/log/log_test.md)
+  - [log test](/docs/log/log-test.md)
+- io
+  - [io](/docs/io/io.md)
+  - [io test](/docs/io/io-test.md)
+  - [io example](/docs/io/io-example.md)
+  - [io multi](/docs/io/io-multi.md)
+  - [io pipe](/docs/io/io-pipe.md)
+  - io.ioutil
+    - [ioutil](/docs/io/ioutil/ioutil.md)
+    - [ioutil](/docs/io/ioutil/ioutil-test.md)
