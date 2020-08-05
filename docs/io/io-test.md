@@ -80,6 +80,12 @@ dlv test, b io_test.TestCopy, c, 可调试第一个测试函数.
 之前的测试已经验证了会走扩展逻辑,io包的源码指定了会优先走Writer扩展,
 所以在TestCopyPriority中,只需要检查标志位是否是true.
 
+### 读写错误优先级
+
+io包源码中写错误的优先级高.
+TestCopyReadErrWriteErr配合两个特别设计的Writer/Reader,测试Copy()的返回值,
+这种写法注重于测试异常流程.
+
 ## 测试遵循的细节
 
 ## 令人眼前一亮的写法
@@ -89,3 +95,5 @@ dlv test, b io_test.TestCopy, c, 可调试第一个测试函数.
 大部分篇幅都是针对暴露的函数,少部分针对暴露的功能性结构体.
 
 ## 如何写测试
+
+对于异常流程或预期的返回值,可单独用一个测试函数来测试.
