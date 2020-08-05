@@ -14,7 +14,7 @@
 
 - 无扩展,验证所有的返回值是否符合预期
 - 带扩展,验证是否调用了扩展逻辑
-- Writer/Reader都带扩展,验证扩展优先级是否按预期执行
+  - Writer/Reader都带扩展,验证扩展优先级是否按预期执行
 - 验证读写逻辑错误的优先级
 - CopyN针对带扩展/不带扩展的情况
 - CopyN针对大小缓冲区的基准测试
@@ -72,6 +72,13 @@ dlv test, b io_test.TestCopy, c, 可调试第一个测试函数.
 - TestCopyReadFrom/TestCopyWriteTo
   - 测试Copy系列函数,最后是测试对扩展的处理
   - 这也算是代码复用,以后要修改只修改一处
+
+### 扩展逻辑的优先级,用测试结果来说明
+
+源码中用writeToChecker结构体来验证,具体做法是在WriteTo中加了标志位.
+
+之前的测试已经验证了会走扩展逻辑,io包的源码指定了会优先走Writer扩展,
+所以在TestCopyPriority中,只需要检查标志位是否是true.
 
 ## 测试遵循的细节
 
