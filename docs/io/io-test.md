@@ -86,6 +86,34 @@ io包源码中写错误的优先级高.
 TestCopyReadErrWriteErr配合两个特别设计的Writer/Reader,测试Copy()的返回值,
 这种写法注重于测试异常流程.
 
+### CopyN
+
+CopyN在Copy的基础上做了一个封装,限定了Reader读的最大字节数.
+
+测试例子中提供了3个测试函数:
+
+- TestCopyN, 常规测试
+- TestCopyNReadFrom, 测试Writer对ReadFrom的扩展
+- TestCopyNWriteTo, 测试Reader对WriteTo的扩展
+
+dlv单步之后,发现TestCopyNWriteTo没有走扩展流程,具体原因如下:
+测试函数传入的Reader是bytes.Buffer,
+在CopyN中将bytes.Buffer封装到LimitedReader中了,但LimitedReader
+是没有实现WriterTo接口的,所以不会州扩展流程.
+
+如果要修改,可copyBuffer中的扩展逻辑下面添加如下代码:
+
+    if l,ok := src.(*LimitedReader); ok {
+      if wt,ok := src.R.(WriterTo); ok {
+        return wt.WriteTo(dst)
+      }
+    }
+
+这里仅仅是针对CopyN的改造,但放在了公共函数copyBuffer上面,
+肯定是不合适的,或许可以放在LimitedReader上,问题是:
+万一LimitedReader的R没有实现WriterTo,就会影响到copyBuffer
+的正常流程,综合考虑,还是应该修改公共函数copyBuffer.
+
 ## 测试遵循的细节
 
 ## 令人眼前一亮的写法
