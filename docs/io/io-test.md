@@ -114,6 +114,39 @@ dlv单步之后,发现TestCopyNWriteTo没有走扩展流程,具体原因如下:
 万一LimitedReader的R没有实现WriterTo,就会影响到copyBuffer
 的正常流程,综合考虑,还是应该修改公共函数copyBuffer.
 
+### CopyN的基准测试
+
+这里有很多新东西,可以学习.
+
+    func BenchmarkCopyNSmall(b *testing.B) {
+      bs := bytes.Repeat([]byte{0}, 512+1)
+      rd := bytes.NewReader(bs)
+      buf := new(Buffer)
+      b.ResetTimer()
+
+      for i := 0; i < b.N; i++ {
+        CopyN(buf, rd, 512)
+        rd.Reset(bs)
+      }
+    }
+
+首先是创建一个bytes.Buffer,Repeat的实现很有趣,后面也会分析到,
+b.ResetTimer()消除了准备阶段对测试的影响,
+
+基准测试一定要有对比,这里对比的因素是CopyN中每次读写的颗粒度.
+Benchmark测试叫基准测试,也叫性能测试,后面都用性能测试来表述.
+
+    ➜  io go test -bench=. -run=^$ -benchmem
+    goos: linux
+    goarch: amd64
+    pkg: io
+    BenchmarkCopyNSmall-4   2238950   8258 ns/op    2462 B/op   2 allocs/op
+    BenchmarkCopyNLarge-4   1300      2222590 ns/op 135716 B/op 2 allocs/op
+    PASS
+    ok  io  23.226s
+
+可以看出,缓冲越大性能越差.
+
 ## 测试遵循的细节
 
 ## 令人眼前一亮的写法
