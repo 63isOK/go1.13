@@ -17,7 +17,7 @@
   - Writer/Reader都带扩展,验证扩展优先级是否按预期执行
 - 验证读写逻辑错误的优先级
 - CopyN针对带扩展/不带扩展的情况
-- CopyN针对大小缓冲区的基准测试
+- CopyN针对拷贝大小的基准测试
 - CopyN针对EOF的情况
 
 第二,针对ReadAtLeast的测试,
@@ -145,7 +145,48 @@ Benchmark测试叫基准测试,也叫性能测试,后面都用性能测试来表
     PASS
     ok  io  23.226s
 
-可以看出,缓冲越大性能越差.
+可以看出,读写字节数越大性能越差,(废话?).
+Large读写的字节数是Small的64倍,但性能却差了三个数量级.
+所以说宁可多调CopyN几次,也不要让CopyN来一次大的.
+
+### CopyN对各种EOF的处理
+
+分别覆盖了以下场景:
+
+- Reader扩展,Writer不扩展,读缓冲3字节,最大读写数是3
+  - 预期,写3字节,err为nil
+- Reader扩展,Writer不扩展,读缓冲3字节,最大读写数是4
+  - 预期,写3字节,err为EOF
+- Reader扩展,Writer扩展,读缓冲3字节,最大读写数是3
+  - 预期,写3字节,err为nil
+- Reader扩展,Writer扩展,读缓冲3字节,最大读写数是4
+  - 预期,写3字节,err为EOF
+- Reader报错,Writer扩展,最大读写数是5
+  - 预期,写5字节,err为nil
+- Reader报错,Writer不扩展,最大读写数是5
+  - 预期,写5字节,err为nil
+
+前面4个测试函数好了解,后面两个为啥也是正确的.
+CopyN内部,Copy返回的是(5,error),5正好满足CopyN的要求,
+所以错误会被忽略掉.
+倒数第二个测试函数走的是strings.Buffer.ReadFrom;倒数第一个走的是常规逻辑.
+
+这里有一点值得思考:LimitedReader.N到底有哪些意思:
+
+对于非CopyN的拷贝函数:
+
+- 如果Writer/Reader有扩展,N具体是多少就没关系了
+- 如果走常规逻辑,N只表示最大读写数
+  - 这里的条件非常严:
+    - 第一需要非CopyN系列函数
+    - 第二需要Reader要支持扩展 LimitedReader
+
+对于CopyN:
+
+- N表示最大读写数
+  - 此时不管Writer/Reader是否还有其他扩展
+
+再次总结:CopyN的N和Reader的LimitedReader扩展,都限定了最大读写的字节数.
 
 ## 测试遵循的细节
 
