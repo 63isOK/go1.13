@@ -196,6 +196,13 @@ ReadAtLeast函数是从Reader中最少读xx字节的数据到制定切片.
 这个测试的手法,是将ReadAtLeast的所有边界都包含了.
 对bytes.Buffer的实现细节不清楚,所以不好分析具体的流程,待后续对bytes包的分析.
 
+### TeeReader的测试
+
+TeeReader实现了Reader,具体行为是从Reader读数据到buf切片,后再写回到Writer,
+TestTeeReader前一部分是常规的测试,后一部分,Writer是通过Pipe()生成的.
+
+Pipe()是io包的其余部分,后面分析.
+
 ## 测试遵循的细节
 
 ## 令人眼前一亮的写法
