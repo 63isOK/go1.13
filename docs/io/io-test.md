@@ -188,6 +188,14 @@ CopyN内部,Copy返回的是(5,error),5正好满足CopyN的要求,
 
 再次总结:CopyN的N和Reader的LimitedReader扩展,都限定了最大读写的字节数.
 
+### ReadAtLeast系列
+
+有三个测试函数,底层调用的都是testReadAtLeast,
+ReadAtLeast函数是从Reader中最少读xx字节的数据到制定切片.
+
+这个测试的手法,是将ReadAtLeast的所有边界都包含了.
+对bytes.Buffer的实现细节不清楚,所以不好分析具体的流程,待后续对bytes包的分析.
+
 ## 测试遵循的细节
 
 ## 令人眼前一亮的写法
@@ -199,3 +207,6 @@ CopyN内部,Copy返回的是(5,error),5正好满足CopyN的要求,
 ## 如何写测试
 
 对于异常流程或预期的返回值,可单独用一个测试函数来测试.
+
+对函数或方法的约束可用一个功能函数(非导出,意味着可能是功能函数),
+再针对不同的场景,使用多个测试函数来调用.
