@@ -19,3 +19,8 @@
   - io.ioutil
     - [ioutil](/docs/io/ioutil/ioutil.md)
     - [ioutil](/docs/io/ioutil/ioutil-test.md)
+  - errors
+    - [errors](/docs/errors/errors.md)
+    - [errors-test](/docs/errors/errors-test.md)
+    - [wrap](/docs/errors/wrap.md)
+    - [wrap-test](/docs/errors/wrap-test.md)
