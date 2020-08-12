@@ -236,6 +236,13 @@ rb := new(Buffer)时接口字段被初始化为nil.
 
 第二个参数是一个接口类型,不管是上面的struct,还是new(bytes.Buffer)均可支持.
 
+### 一些特别的类型
+
+TestMultiReaderFlatten测试的是实现了Reader接口的函数类型.
+配合runtime的堆栈信息做一些测试.
+
+还有按字节读的结构体配合ioutil包作测试,放后面分析.
+
 ## 眼前一亮的手法
 
 测试数据的初始化和预期结果可以放在两个内置函数中,
