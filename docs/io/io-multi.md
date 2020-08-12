@@ -39,6 +39,86 @@ io包的mutil.go文件,暴露了两个函数.
 
 multi_test.go,里面的层次或许不如io.go,但里面的写法更加大胆,值得观摩.
 
+### TestMultiReader()分析
+
+这个测试函数使用了很多新的写法.
+
+    func TestMultiReader(t *testing.T) {
+      var mr Reader
+      var buf []byte
+      nread := 0
+      withFooBar := func(tests func()) {
+        r1 := strings.NewReader("foo ")
+        r2 := strings.NewReader("")
+        r3 := strings.NewReader("bar")
+        mr = MultiReader(r1, r2, r3)
+        buf = make([]byte, 20)
+        tests()
+      }
+      expectRead := func(size int, expected string, eerr error) {
+        nread++
+        n, gerr := mr.Read(buf[0:size])
+        if n != len(expected) {
+          t.Errorf("#%d, expected %d bytes; got %d",
+            nread, len(expected), n)
+        }
+        got := string(buf[0:n])
+        if got != expected {
+          t.Errorf("#%d, expected %q; got %q",
+            nread, expected, got)
+        }
+        if gerr != eerr {
+          t.Errorf("#%d, expected error %v; got %v",
+            nread, eerr, gerr)
+        }
+        buf = buf[n:]
+      }
+      withFooBar(func() {
+        expectRead(2, "fo", nil)
+        expectRead(5, "o ", nil)
+        expectRead(5, "bar", nil)
+        expectRead(5, "", EOF)
+      })
+      withFooBar(func() {
+        expectRead(4, "foo ", nil)
+        expectRead(1, "b", nil)
+        expectRead(3, "ar", nil)
+        expectRead(1, "", EOF)
+      })
+      withFooBar(func() {
+        expectRead(5, "foo ", nil)
+      })
+    }
+
+先不看具体的测试功能,先看看写法.
+里面定义了两个函数,一个用于准备测试数据,一个用于具体的测试执行.
+这两个函数都是在测试函数中定义的,属于闭包的范围.
+这种写法,特别适合对一组数据的多场景测试,数据的初始化和测试的预期结果
+分别放在两个函数,属于表格测试的一种简化.
+
+其次,对数据做了3个场景测试(得益于闭包),所以调用了withFooBar 3次.
+再看看数据的初始化和预期结果,数据变量放在测试函数,
+数据的初始化放在第一个内置函数里,预期结果作为第二个之函数的参数.
+
+这种测试方式是对表格测试的一种补充.写法大胆而不失优雅.
+
+再看看具体的功能.
+
+TestMultiReader,测试对象是MultiReader().Read().
+multiReader是一个Reader树,每次调用Read()就是从Reader树中找一个进行Read,
+直到读到东西,或遍历完Reader树.其中有几个细节:
+
+- 读完的Reader不再读
+- 只要能读到数据就返回,不管这个Reader是不是已经EOF
+- 所有Reader都读完了,返回(0,EOF)
+
+withFooBar(),构造了一个multiReader,里面包含3个strings.Reader.
+
+expectRead(),对应一次Read,指定了读缓冲大小和预期结果.
+
 ## 眼前一亮的手法
+
+测试数据的初始化和预期结果可以放在两个内置函数中,
+可以代替表格测试.
 
 ## 总结
