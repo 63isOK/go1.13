@@ -151,3 +151,27 @@ Pipe()构造的两个对象是同步读写的.
 整个读的过程是读一步检查一步,最后将所有的结果进行检查.
 包括了读长度/写长度/返回值/读到的每个数据.
 基本上能检查的全部做了检查.
+
+## 关闭的场景
+
+读写过程中的关闭是可能出现的,所以需要做测试.
+
+TestPipeReadClose(),表格测试,测试了两种情况:
+pipe关闭后读;读时遇到pipe关闭.(分别对应同步和异步的场景).
+
+这里面有个缓冲信道,用于保证delayClose执行完之后再做检查.
+这步的目的是先检查delayClose的结果,后检查读的结果.
+不然测试函数执行完了,再检查delayClose逻辑就不对了.
+
+上面的关闭是通过PipeWriter来关闭,返回的error是EOF,
+TestPipereadClose2(),是通过PipeReader来关闭,返回的error是ErrClosePipe.
+
+TestPipeWriteClose()系列则是测试关闭后写和写时关闭,
+以及通过不同PipeWriter来关闭.场景和读时关闭的场景一致.
+
+TestWriteEmpty/TestWriteNil 没有做结果检查.
+
+## 写法
+
+一个测试函数的执行过程中,要确保每个检查做做完了再结束,
+这种只针对多协程场景.此时缓冲信道可以派上用场.
