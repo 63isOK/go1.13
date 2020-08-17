@@ -16,6 +16,7 @@
   - [io example](/docs/io/io-example.md)
   - [io multi](/docs/io/io-multi.md)
   - [io pipe](/docs/io/io-pipe.md)
+  - [pipe test](/docs/io/pipe-test.md)
   - io.ioutil
     - [ioutil](/docs/io/ioutil/ioutil.md)
     - [ioutil](/docs/io/ioutil/ioutil-test.md)
