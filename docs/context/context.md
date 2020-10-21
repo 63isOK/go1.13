@@ -413,7 +413,7 @@ valueCtx和timerCtx不同,是直接基于Context的.
 
 ## With-系列函数
 
-支持取消信号:
+支持取消信号 WithCancel:
 
     var Canceled = errors.New("context canceled")
     func WithCancel(parent Context) (ctx Context, cancel CancelFunc) {
@@ -497,8 +497,116 @@ valueCtx和timerCtx不同,是直接基于Context的.
 WithCancel的取消操作会释放相关资源,所以在上下文操作完之后,最好尽快触发取消操作.
 触发的方式是:done信道触发,要么有数据,要么被关闭.
 
-WithDeadline函数:
+支持截至日期 WithDeadline:
 
+    func WithDeadline(parent Context, d time.Time) (Context, CancelFunc) {
+      if parent == nil {
+        panic("cannot create context from nil parent")
+      }
+      if cur, ok := parent.Deadline(); ok && cur.Before(d) {
+        // The current deadline is already sooner than the new one.
+        return WithCancel(parent)
+      }
+      c := &timerCtx{
+        cancelCtx: newCancelCtx(parent),
+        deadline:  d,
+      }
+      propagateCancel(parent, c)
+      dur := time.Until(d)
+      if dur <= 0 {
+        c.cancel(true, DeadlineExceeded) // deadline has already passed
+        return c, func() { c.cancel(false, Canceled) }
+      }
+      c.mu.Lock()
+      defer c.mu.Unlock()
+      if c.err == nil {
+        c.timer = time.AfterFunc(dur, func() {
+          c.cancel(true, DeadlineExceeded)
+        })
+      }
+      return c, func() { c.cancel(true, Canceled) }
+    }
 
+With-系列函数用于生成派生Context,函数内部第一步都是判断父Context是否为nil,
+WithDeadline第二步是判断父Context是否支持deadline,支持就将取消信号传递给派生Context,
+如果不支持,就为当前派生Context支持deadline.
+
+先理一下思路,目前Context的实现类型有4个:emptyCtx/cancelCtx/timerCtx/valueCtx,
+除了emptyCtx,实现Deadline()方法的只有timerCtx,(ps:这里的实现特指有业务意义的实现),
+唯一可以构造timerCtx的只有WithDeadline的第二步中.
+这么说来,顶层Context不支持deadline,最多第二层派生支持deadline的Context,
+第三层派生用于将取消信号进行传播.
+
+WithCancel上面已经分析了,派生一个支持取消信号的Context,并将父Context的取消信号
+传播到派生Context(ps:这么说有点绕,简单点讲就是将派生Context添加到父Context的children),
+下面看看第一个构造支持deadline的过程.
+
+构造timerCtx,传播取消信号,判断截至日期是否已过,如果没过,利用time.AfterFunc创建定时器,
+设置定时触发的协程处理,之后返回派生Context和取消函数.
+
+可以看到,整个WithDeadline是基于WithCancel实现的,截至日期到期后,利用取消信号来做后续处理.
+
+因为timerCtx是内嵌了cancelCtx,所以有一个派生Context是可以同时支持取消和deadline的,
+后面的value支持也是如此.
+
+WithDeadline的注释说明:
+派生Context的deadline不晚于参数,如果参数晚于父Context支持的deadline,使用父Context的deadline,
+如果参数指定的比父Context早,或是父Context不支持deadline,那么派生Context会构造一个新的timerCtx.
+父Context的取消/派生Context的取消/或者deadline的过期,都会触发取消信号对应的操作执行,
+具体就是Done()信道会被关闭.
+
+    func WithTimeout(parent Context, timeout time.Duration) (Context, CancelFunc) {
+      return WithDeadline(parent, time.Now().Add(timeout))
+    }
+
+WitchTimeout是基于WithDeadline实现的,是一种扩展,从设计上可以不加,但加了会增加调用者的便捷.
+WithTimeout可用在"慢操作"上.上下文使用完之后,应该立即调用取消操作来释放资源.
+
+支持值WitchValue:
+
+    func WithValue(parent Context, key, val interface{}) Context {
+      if parent == nil {
+        panic("cannot create context from nil parent")
+      }
+      if key == nil {
+        panic("nil key")
+      }
+      if !reflectlite.TypeOf(key).Comparable() {
+        panic("key is not comparable")
+      }
+      return &valueCtx{parent, key, val}
+    }
+
+只要是key能比较,就构造一个valueCtx,用Value()获取值时,如果和当前派生Context的key不匹配,
+就会和父Context的key做匹配,如果不匹配,最后顶层Context会返回nil.
+
+总结一下:如果是Value(),会一直通过派生Context找到顶层Context;
+如果是deadline,会返回当前派生Context的deadline,但会受到父Context的deadline和取消影响;
+如果是取消函数,会将传播取消信号的相关Context都做取消操作.
+最重要的是Context是一个树形结构,可以组成很复杂的结构.
+
+到目前为止,只了解了包的内部实现(顶层Context的构造/With-系列函数的派生),
+具体使用,需要看例子和实际测试.
+
+ps:一个包内部如何复杂,对外暴露一定要简洁.一个包是无法设计完美的,但是约束可以,
+当大家都接受一个包,并接受使用包的规则时,这个包就成功了,context就是典型.
+
+对于值,可以用WithValue派生,用Value取;
+对于cancel/deadline,可以用WithDeadline/WithTimeout派生,通过Done信号获取结束信号,
+也可以手动用取消函数来触发取消操作.整个包的功能就这么简单.
 
 ## 扩展功能以及如何扩展
+
+扩展功能现在支持取消/deadline/value,扩展这个层级不应该放在这个包,
+扩展Context,也就是新建Context的实现类型,这个是可以的,
+同样实现类型需要承载扩展功能,也不合适.
+
+    type canceler interface {
+      cancel(removeFromParent bool, err error)
+      Done() <-chan struct{}
+    }
+
+接口canceler是保证取消信号可以在链上传播,cancel方法由cancelCtx/timerCtx实现,
+Done只由cancelCtx创建done信道,不管是从功能上还是方法上都没有扩展的必要.
+
+剩下的就是Value扩展成多kv对,这个主要还是要看应用场景.
