@@ -610,3 +610,26 @@ ps:一个包内部如何复杂,对外暴露一定要简洁.一个包是无法设
 Done只由cancelCtx创建done信道,不管是从功能上还是方法上都没有扩展的必要.
 
 剩下的就是Value扩展成多kv对,这个主要还是要看应用场景.
+
+## 补充
+
+Context被取消后Err返回Canceled错误,超时之后Err返回DeadlineExceeded错误,
+这个DeadlineExceeded还有些说法:
+
+  var DeadlineExceeded error = deadlineExceededError{}
+
+  type deadlineExceededError struct{}
+  func (deadlineExceededError) Error() string   { return "context deadline exceeded" }
+  func (deadlineExceededError) Timeout() bool   { return true }
+  func (deadlineExceededError) Temporary() bool { return true }
+
+再看看net.Error接口:
+
+    type Error interface {
+      error
+      Timeout() bool   // Is the error a timeout?
+      Temporary() bool // Is the error temporary?
+    }
+
+context中的DeadlineExceeded默认是实现了net.Error接口的实例.
+这个是为后面走网络超时留下的扩展.
