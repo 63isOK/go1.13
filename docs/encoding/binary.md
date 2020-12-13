@@ -93,6 +93,10 @@ ByteOrder对16/32/64位的数值和`[]byte`做了一个转换.
 
     // 小端模式将`[]byte`转换为uint16
     // 边界检查丢给了编译器
+    // 测试发现,其实并不是在编译期将错误抛出来
+    // 而是写了一个边界检查,还是在运行时报错
+    // issue14808提出了一个解决方法,用以兼容不满足边界检查的场景
+    // 小端,低位放低地址,16表示只处理16位
     func (littleEndian) Uint16(b []byte) uint16 {
       _ = b[1] // bounds check hint to compiler; see golang.org/issue/14808
       return uint16(b[0]) | uint16(b[1])<<8
@@ -136,6 +140,10 @@ ByteOrder对16/32/64位的数值和`[]byte`做了一个转换.
       b[7] = byte(v >> 56)
     }
 
+    // 仅仅是输出和字节序相关的信息
     func (littleEndian) String() string { return "LittleEndian" }
-
     func (littleEndian) GoString() string { return "binary.LittleEndian" }
+
+至此小端已经分析完了,大端只是对应不同而已,就不贴代码了.
+
+coder分析:
