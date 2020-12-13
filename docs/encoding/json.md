@@ -25,7 +25,7 @@
 
 反序列化，第二个空接口参数需要我们提前申请,入参要是传址
 
-如果[]byte里的json数据可以解析为v，默认会按顺序优先进行一一赋值。
+如果`[]byte`里的json数据可以解析为v，默认会按顺序优先进行一一赋值。
 当然也是能修改的，现在json有个key是Foo，如果反序列化到那个字段呢：
 
 - 如果字段有个tag叫Foo，那优先匹配
@@ -40,7 +40,7 @@ Unmarshal只会反序列化类型能匹配上的字段，如果json数据的结�
 
 这种很适用于用反序列化时不知道json结构的情况
 
-encoding/json包用 map[string]interface{} 和 []interface{} 来存储json的对象和数组，
+encoding/json包用 `map[string]interface{}` 和 `[]interface{}` 来存储json的对象和数组，
 bool对应json的booleans，
 float64对应json的数值，
 string对应json的string，
