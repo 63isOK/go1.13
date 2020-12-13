@@ -1,6 +1,6 @@
 # context包
 
-**这个包分析的是1.15**
+`这个包分析的是1.15`
 
 ## 包说明分析
 
@@ -123,6 +123,22 @@ withCancel:
 
 ## 基于实现类型到常用函数
 
-Context接口的实现类型是emptyCtx,通过常用函数会封装到cancelCtx.
+Context接口的实现类型是emptyCtx
+
+    type emptyCtx int
+    func (*emptyCtx) Deadline() (deadline time.Time, ok bool) { return }
+    func (*emptyCtx) Done() <-chan struct{} { return nil }
+    func (*emptyCtx) Err() error { return nil }
+    func (*emptyCtx) Value(key interface{}) interface{} { return nil }
+
+emptyCtx是实现了Context接口,但具体的实现由名字empty指明了,是空的.
+不能be cancelled,所以需要进行扩展才能作为一个Context类型使用,
+常用的方法就是内嵌到struct,由具体的struct来重新实现方法.
+
+小技巧:作为接收者,如果在方法实现时未用到,可省略.
+
+emptyCtx除了实现了context.Context接口,还实现了:fmt.Stringer接口(用于fmt打印).
+打印也只判断了background和todo两个emptyCtx实例.
+对外暴露用于构造context.Context实例的正好是Background()和TODO()函数,
 
 ## 扩展功能以及如何扩展
