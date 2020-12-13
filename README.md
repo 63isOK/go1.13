@@ -4,6 +4,7 @@
 
 - context
   - [context](/docs/context/context.md)
+  - [context test](/docs/context/test.md)
   - [context usage](/docs/context/usage.md)
 - [encoding](/docs/encoding.md)
   - [encoding/json](/docs/encoding/json.md)
